@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bird or Forest?</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; text-align: center; }
+        #preview { max-width: 400px; margin: 20px auto; display: none; }
+        #results { font-size: 1.5em; margin-top: 20px; color: #333; }
+        .thinking { color: #999; }
+    </style>
+</head>
+<body>
+    <h2>🐦 Bird or Forest? 🌲</h2>
+    <p>Upload an image and the model will classify it</p>
+    <input type="file" id="photo" accept="image/*">
+    <br>
+    <img id="preview">
+    <div id="results"></div>
+
+    <script type="module">
+        import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
+
+        const photoInput = document.getElementById("photo");
+        const resultsDiv = document.getElementById("results");
+        const preview = document.getElementById("preview");
+
+        photoInput.addEventListener("change", async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Show preview
+            preview.src = URL.createObjectURL(file);
+            preview.style.display = "block";
+            resultsDiv.innerHTML = "<span class='thinking'>Thinking...</span>";
+
+            try {
+                resultsDiv.innerHTML = "<span class='thinking'>Connecting to model (may take ~30s if sleeping)...</span>";
+                const client = await Client.connect("anshupande/bird-or-forest");
+                resultsDiv.innerHTML = "<span class='thinking'>Classifying...</span>";
+                const result = await client.predict("/classify_image", {
+                    img: file,
+                });
+                const label = result.data[0].label;
+                const confidence = (result.data[0].confidences[0].confidence * 100).toFixed(1);
+                resultsDiv.innerHTML = `<strong>${label}</strong> (${confidence}% confidence)`;
+            } catch (err) {
+                resultsDiv.innerHTML = "<span class='thinking'>Waking up model, retrying...</span>";
+                try {
+                    const client = await Client.connect("anshupande/bird-or-forest");
+                    const result = await client.predict("/classify_image", { img: file });
+                    const label = result.data[0].label;
+                    const confidence = (result.data[0].confidences[0].confidence * 100).toFixed(1);
+                    resultsDiv.innerHTML = `<strong>${label}</strong> (${confidence}% confidence)`;
+                } catch (err2) {
+                    resultsDiv.innerHTML = `Error: ${err2.message}. The Space may be sleeping — visit <a href="https://huggingface.co/spaces/anshupande/bird-or-forest">the Space</a> to wake it, then retry.`;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
